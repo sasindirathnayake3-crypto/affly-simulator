@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Affly Solace Orbit Simulator</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        /* A. Global Styles (Final Fix for Full Screen and Scroll) */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000000;
+            color: #FFFFFF;
+            font-family: 'Consolas', 'Courier New', monospace;
+            /* 🚨 Full-screen Canvas සඳහා 100vh අත්‍යවශ්‍යයි */
+            height: 100vh; 
+            width: 100vw;
+            overflow: hidden; /* Simulator එකේදී body scroll නොවේ */
+        }
+
+        /* B. Neon Text Effect */
+        .neon-text {
+            color: #CCFFFF;
+            text-shadow: 0 0 5px #00FFFF, 0 0 10px #00FFFF, 0 0 15px #00FFFF;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        .neon-text-sub {
+            color: #FFFF99;
+            text-shadow: 0 0 3px #FFFF00;
+            font-weight: bold;
+        }
+
+        /* C. Simulator Container (Fix for Full Screen) */
+        #affly-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%; /* 🚨 body හි 100vh උස උරුම කරගනී */
+            display: none; /* මුලින් සඟවා තබයි */
+            background-color: #0A150F;
+        }
+
+        /* D. Quiz Overlay (Fix for Scrolling) */
+        #quiz-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%; 
+            background-color: rgba(0, 0, 0, 0.95); 
+            display: flex;
+            flex-direction: column; /* Scroll කිරීමට ඉඩ දෙයි */
+            justify-content: flex-start;
+            align-items: center; 
+            overflow-y: auto; /* 🚨 Scrollbar සක්‍රීය කරයි */
+            padding: 80px 0 40px 0; 
+            box-sizing: border-box;
+            z-index: 9999; 
+        }
+
+        #quiz-modal {
+            background-color: #0A150F;
+            border: 3px solid #00FFFF;
+            padding: 40px;
+            max-width: 600px;
+            box-shadow: 0 0 20px #00FFFF;
+            /* Scroll ගැටලුව නිසා 'margin: auto' වෙනුවට 'padding' පමණක් භාවිතා කරයි */
+			margin: 40px auto;
+        }
+        
+        /* E. Quiz Components (පෙර කේතය) */
+        .question-block {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-bottom: 1px dashed #333333;
+        }
+        .option-label {
+            display: block;
+            margin: 5px 0;
+            cursor: pointer;
+        }
+        .submit-button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin-top: 20px;
+            background-color: #00FFFF;
+            color: #000000;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00FFFF;
+        }
+
+        /* F. Top Community Feed (Read-Only) */
+        #community-feed-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 50px; 
+            background-color: rgba(0, 51, 51, 0.5); 
+            color: #00FFFF;
+            display: none; 
+            align-items: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 100; 
+            border-bottom: 2px solid #00FFFF;
+            text-shadow: 0 0 5px #00FFFF;
+            overflow: hidden;
+        }
+        #feed-content {
+            white-space: nowrap; 
+            overflow: hidden;
+            font-size: 0.9em;
+        }
+        .feed-message {
+            display: inline-block;
+            margin-right: 50px;
+            animation: scroll-feed 20s linear infinite; 
+        }
+        @keyframes scroll-feed {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        /* G. Live Chat/Comment Panel (වම් පහළ කෙළවරේ) */
+        #chat-panel {
+            position: fixed;
+            left: 20px; 
+            bottom: 20px; 
+            width: 300px;
+            height: 350px;
+            background-color: rgba(0, 10, 20, 0.7); 
+            border: 1px solid #00FFFF;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            padding: 10px;
+            box-sizing: border-box;
+            z-index: 1000;
+            display: none; 
+            flex-direction: column;
+        }
+        #chat-title {
+            color: #00FFFF;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+            text-shadow: 0 0 5px #00FFFF;
+        }
+        #chat-messages-container {
+            flex-grow: 1;
+            overflow-y: auto; 
+            padding-right: 5px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #004444;
+        }
+        .chat-user {
+            color: #FFFF00; 
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        #chat-input-area {
+            display: flex;
+        }
+        #chat-input {
+            flex-grow: 1;
+            padding: 8px;
+            background-color: #0A150F;
+            border: 1px solid #00CCCC;
+            color: #FFFFFF;
+            font-family: inherit;
+        }
+        #chat-send-button {
+            padding: 8px 15px;
+            background-color: #00FFFF;
+            color: #000000;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="chat-panel">
+        <div id="chat-title" class="neon-text">LIVE COMMUNITY FEED</div>
+        <div id="chat-messages-container">
+            <div class="chat-message"><span class="chat-user">[SYS]</span> Welcome to Affly Solace Orbit. Post safely.</div>
+        </div>
+        <div id="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type your comment..." maxlength="100">
+            <button id="chat-send-button">SEND</button>
+        </div>
+    </div>
+
+    <div id="community-feed-overlay">
+        <h3 class="neon-text" style="font-size: 1.1em; margin-right: 15px;">[COMMUNITY ECHOES]:</h3>
+        <div id="feed-content">
+            </div>
+    </div>
+
+    <div id="affly-container">
+        </div>
+    
+    <div id="quiz-overlay">
+        <div id="quiz-modal">
+            <h1 class="neon-text">WELCOME TO AFFLY</h1>
+            <p class="intro-text">
+                This is a safe community for observers of The Solace Orbit.
+                To access the community feed, you must prove your basic
+                knowledge of space science.
+            </p>
+            <h3 class="neon-text quiz-title">QUALIFICATION TEST: 5 QUESTIONS</h3>
+            <p class="rule-text">
+                *Rule: You must achieve 80% (4 out of 5) correct answers.*
+            </p>
+            
+            <div id="questions-area">
+                </div>
+            
+            <button id="submit-quiz-button" class="submit-button">SUBMIT AND ENTER</button>
+        </div>
+    </div>
+
+    <script>
+        
+        // =================================================================================
+        // PART A: QUIZ DATA AND LOGIC
+        // =================================================================================
+
+        const questionsArea = document.getElementById('questions-area');
+        const submitButton = document.getElementById('submit-quiz-button');
+        const quizOverlay = document.getElementById('quiz-overlay');
+        const afflyContainer = document.getElementById('affly-container'); 
+        const chatPanel = document.getElementById('chat-panel'); // Live Chat Panel
+
+        let userAnswers = new Array(5).fill(null); 
+
+        // Quiz Questions Data (quiz-data.pdf වෙතින්)
+        const quizQuestions = [
+            {
+                question: "1. How many confirmed planets orbit the Sun in our Solar System?",
+                options: ["9", "8", "10"],
+                correctAnswerIndex: 1 
+            },
+            {
+                question: "2. What is the common name for the robotic vehicles sent to explore Mars?",
+                options: ["Drone", "Cruiser", "Rover"],
+                correctAnswerIndex: 2 
+            },
+            {
+                question: "3. What astronomical object has a gravitational pull so strong that not even light can escape?",
+                options: ["Supernova", "Black Hole", "Galaxy"],
+                correctAnswerIndex: 1 
+            },
+            {
+                question: "4. What phenomenon primarily determines why stars appear to move across the night sky?",
+                options: ["The Sun's temperature", "The Earth's rotation", "The Moon's phases"],
+                correctAnswerIndex: 1 
+            },
+            {
+                question: "5. The mission to observe Jupiter, Saturn, Uranus, and Neptune is often referred to as the...",
+                options: ["Grand Tour", "Deep Scan", "Planet Hunt"],
+                correctAnswerIndex: 0 
+            }
+        ];
+
+        function loadQuiz() {
+            questionsArea.innerHTML = '';
+            quizQuestions.forEach((q, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.classList.add('question-block');
+
+                const questionTitle = document.createElement('p');
+                questionTitle.classList.add('neon-text-sub');
+                questionTitle.innerHTML = '<strong>' + q.question + '</strong>';
+                questionDiv.appendChild(questionTitle);
+
+                q.options.forEach((option, optionIndex) => {
+                    const label = document.createElement('label');
+                    label.classList.add('option-label');
+                    label.innerHTML = '<input type="radio" name="question-' + index + '" value="' + optionIndex + '" onclick="updateAnswer(' + index + ', ' + optionIndex + ')"> ' + option;
+                    questionDiv.appendChild(label);
+                });
+                questionsArea.appendChild(questionDiv);
+            });
+        }
+        
+        window.updateAnswer = function(qIndex, aIndex) {
+            userAnswers[qIndex] = parseInt(aIndex);
+        };
+
+        function checkQuizAnswers() {
+            let score = 0;
+            quizQuestions.forEach((q, index) => {
+                if (userAnswers[index] === q.correctAnswerIndex) {
+                    score++;
+                }
+            });
+            return score;
+        }
+
+        submitButton.addEventListener('click', function() {
+            let allAnswered = userAnswers.every(answer => answer !== null);
+            if (!allAnswered) {
+                alert("Please answer all 5 questions before submitting.");
+                return;
+            }
+
+            let finalScore = checkQuizAnswers();
+            let requiredScore = 4; // 80% (4/5)
+
+            if (finalScore >= requiredScore) {
+                handleQuizSuccess();
+            } else {
+                handleQuizFailure(finalScore);
+            }
+        });
+
+        // 6. Quiz එක සාර්ථකව සමත් වූ විට (SUCCESS)
+        function handleQuizSuccess() {
+            quizOverlay.style.display = 'none';
+            afflyContainer.style.display = 'block'; 
+
+            alert("QUALIFICATION SUCCESSFUL. Welcome to the Affly community.");
+            
+            startSimulator(); 
+            chatPanel.style.display = 'flex'; // 🚨 Live Chat Panel එක පෙන්වීම
+        }
+
+        // 7. Quiz එකෙන් අසමත් වූ විට (FAILURE)
+        function handleQuizFailure(score) {
+            alert('QUALIFICATION FAILED. Your score: ' + score + '/5. You need 4 correct answers to proceed. Please try again.');
+            userAnswers.fill(null); 
+            loadQuiz(); 
+        }
+
+        window.onload = loadQuiz;
+
+
+        // =================================================================================
+        // PART B: 3D SIMULATOR LOGIC (THREE.JS)
+        // =================================================================================
+
+        var roverPositionZ = 0;
+        var speed = 0.5;
+
+        function startSimulator() {
+            // Community Feed (Read-Only) දර්ශනය කිරීම
+            document.getElementById('community-feed-overlay').style.display = 'flex';
+            
+            // Feed Messages
+            var feedMessages = [
+                "🛰️ Solace Status: Nominal. Deep space trajectory is clear.",
+                "💬 User A1pha: Has anyone confirmed the anomaly near Jupiter?",
+                "🛰️ Rover 1 Status: Engine health at 98%. Proceeding to Saturn's orbit.",
+                "💬 User XyZ: Stay safe, observers. The journey is long.",
+                "🛰️ Status: Approaching trajectory intersection with Neptune.",
+                "💬 User Cosmo: The ring system is beautiful from this angle!"
+            ];
+            var feedContent = document.getElementById('feed-content');
+            feedContent.innerHTML = feedMessages.map(function(msg) {
+                return '<span class="feed-message">' + msg + '</span>';
+            }).join('');
+
+            // 1. Scene, Camera, සහ Renderer
+            var scene = new THREE.Scene();
+            var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 8000); 
+            var renderer = new THREE.WebGLRenderer({ antialias: true });
+
+            // 🚨 Full-screen Canvas fix: window size භාවිතා කරයි
+            renderer.setSize(window.innerWidth, window.innerHeight); 
+            afflyContainer.innerHTML = ''; 
+            afflyContainer.appendChild(renderer.domElement); 
+            scene.background = new THREE.Color(0x0A150F); 
+
+            // 2. තාරකා (Infinite Stars)
+            var starCount = 10000;
+            var starLimit = 8000; 
+            var starGeometry = new THREE.BufferGeometry();
+            var vertices = [];
+
+            (function addStars() {
+                for (var i = 0; i < starCount; i++) {
+                    var x = (Math.random() - 0.5) * starLimit; 
+                    var y = (Math.random() - 0.5) * starLimit;
+                    var z = (Math.random() - 0.5) * starLimit * 2; 
+                    vertices.push(x, y, z);
+                }
+                starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                var starMaterial = new THREE.PointsMaterial({ color: 0xFFFFFF, size: 2, sizeAttenuation: false });
+                var stars = new THREE.Points(starGeometry, starMaterial);
+                scene.add(stars);
+            })();
+            
+            // 3. ආලෝකය
+            scene.add(new THREE.AmbientLight(0xFFFFFF, 0.5)); 
+            var sunLight = new THREE.DirectionalLight(0xffffff, 1);
+            sunLight.position.set(100, 100, 100); 
+            scene.add(sunLight);
+
+            // 4. රෝවරය (Spacecraft Group)
+            var rover = new THREE.Group();
+            var bodyGeometry = new THREE.BoxGeometry(1, 0.5, 1.5);
+            var bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xAAAAAA });
+            var body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            rover.add(body);
+            
+            var panelMaterial = new THREE.MeshPhongMaterial({ color: 0x111111 });
+            var panelGeometry = new THREE.BoxGeometry(0.05, 2, 1);
+            var panelLeft = new THREE.Mesh(panelGeometry, panelMaterial);
+            panelLeft.position.set(-1.0, 0, 0); panelLeft.rotation.x = Math.PI / 2; rover.add(panelLeft);
+            var panelRight = new THREE.Mesh(panelGeometry, panelMaterial);
+            panelRight.position.set(1.0, 0, 0); panelRight.rotation.x = Math.PI / 2; rover.add(panelRight);
+
+            var lightColor = 0x00FF00;
+            var lightSphere = new THREE.SphereGeometry(0.1, 8, 8);
+            var lightMaterial = new THREE.MeshBasicMaterial({ color: lightColor });
+            var lightMesh = new THREE.Mesh(lightSphere, lightMaterial);
+            lightMesh.position.set(0, 0.5, 0); rover.add(lightMesh);
+            var flasher = new THREE.PointLight(lightColor, 1, 10);
+            flasher.position.set(0, 0.5, 0); rover.add(flasher);
+            
+            rover.position.set(0, 0, 0); scene.add(rover);
+            window.flasher = flasher; window.lightMesh = lightMesh;
+
+            // 5. ග්‍රහලෝක (Planets: Jupiter, Saturn, Uranus, Neptune)
+            function createPlanet(size, color, positionZ, positionX, hasRings) {
+                var planetGroup = new THREE.Group();
+                var geometry = new THREE.SphereGeometry(size, 32, 32);
+                var material = new THREE.MeshPhongMaterial({ color: color }); 
+                var planet = new THREE.Mesh(geometry, material);
+                planetGroup.add(planet);
+                
+                if (hasRings) {
+                    var ringGeometry = new THREE.RingGeometry(size * 1.2, size * 2.5, 64);
+                    var ringMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xAAAAAA, 
+                        side: THREE.DoubleSide
+                    });
+                    var ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                    ring.rotation.x = Math.PI / 2; 
+                    planetGroup.add(ring);
+                }
+                
+                planetGroup.position.set(positionX, 0, positionZ);
+                scene.add(planetGroup);
+                return planetGroup;
+            }
+            
+            var planetDistance = 1500; 
+            var sideOffset = 250;     
+
+            var jupiter = createPlanet(40, 0xFFCC33, -planetDistance, sideOffset, false); 
+            var saturn = createPlanet(30, 0xFFFFCC, -(planetDistance * 2), -sideOffset, true); 
+            var uranus = createPlanet(15, 0x99CCFF, -(planetDistance * 3), sideOffset, false);
+            var neptune = createPlanet(15, 0x3366FF, -(planetDistance * 4), -sideOffset, false);
+            
+            // 6. ග්‍රහක කිහිපයක්
+            function addAsteroid() {
+                var size = Math.random() * 2.5 + 0.5; 
+                var geometry = new THREE.SphereGeometry(size, 8, 8);
+                var material = new THREE.MeshPhongMaterial({ color: 0x555555 });
+                var asteroid = new THREE.Mesh(geometry, material);
+                
+                var xSign = Math.random() < 0.5 ? 1 : -1; 
+                asteroid.position.x = xSign * (Math.random() * 500 + 50); 
+                asteroid.position.y = (Math.random() - 0.5) * 100;
+                asteroid.position.z = (Math.random() * 7000) - 500; 
+                scene.add(asteroid);
+            }
+            for (var i = 0; i < 150; i++) { 
+                addAsteroid();
+            }
+
+            // 7. සජීවීකරණය (Animation)
+            camera.position.set(0, 5, 50); 
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // තාරකා නැවත ස්ථානගත කිරීම
+                for (var i = 0; i < starGeometry.attributes.position.array.length; i += 3) {
+                    if (starGeometry.attributes.position.array[i + 2] > camera.position.z) {
+                        starGeometry.attributes.position.array[i + 2] -= starLimit * 2; 
+                    }
+                }
+                starGeometry.attributes.position.needsUpdate = true;
+
+                // රෝවරය සහ කැමරාව ඉදිරියට ගෙන යාම
+                roverPositionZ -= speed; 
+                camera.position.z = roverPositionZ + 10; 
+                rover.position.z = roverPositionZ;
+                
+                // ග්‍රහලෝක භ්‍රමණය වීම
+                jupiter.rotation.y += 0.005;
+                saturn.rotation.y += 0.005;
+                uranus.rotation.y += 0.005;
+                neptune.rotation.y += 0.005;
+
+                // Flashing Light Logic
+                var time = Date.now() * 0.005; 
+                var flashStrength = (Math.sin(time) + 1) / 2;
+                
+                if (window.flasher) {
+                    window.flasher.intensity = flashStrength * 2; 
+                    var brightness = 0x000000 + Math.floor(255 * flashStrength);
+                    window.lightMesh.material.color.setHex(lightColor + brightness);
+                }
+                
+                renderer.render(scene, camera);
+            }
+
+            animate();
+            
+            // 8. තිරය Resize කිරීම (Full Screen Fix)
+            window.onresize = function() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                // 🚨 Renderer ප්‍රමාණය යාවත්කාලීන කරයි
+                renderer.setSize(window.innerWidth, window.innerHeight); 
+            };
+        }
+        
+        // =================================================================================
+        // PART C: LIVE CHAT/COMMENT LOGIC
+        // =================================================================================
+
+        const chatMessagesContainer = document.getElementById('chat-messages-container');
+        const chatInput = document.getElementById('chat-input');
+        const chatSendButton = document.getElementById('chat-send-button');
+
+        function addComment(username, message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('chat-message');
+            messageDiv.innerHTML = '<span class="chat-user">[' + username + ']</span> ' + message;
+            
+            chatMessagesContainer.appendChild(messageDiv);
+            
+            chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+        }
+
+        chatSendButton.addEventListener('click', function() {
+            sendMessage();
+        });
+
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            let message = chatInput.value.trim();
+            if (message !== '') {
+                let username = 'OBSERVER-' + Math.floor(Math.random() * 900 + 100); 
+                addComment(username, message);
+                chatInput.value = ''; 
+            }
+        }
+        
+    </script>
+</body>
+</html>
